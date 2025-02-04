@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use Illuminate\Http\Request;
+use App\Http\Requests\ProductRequest; // ใช้ FormRequest สำหรับตรวจสอบข้อมูลที่ได้รับ
 use Inertia\Inertia;
 
 class ProductController extends Controller
@@ -13,8 +13,10 @@ class ProductController extends Controller
      */
     public function index()
     {
+        // ดึงข้อมูลสินค้าทั้งหมดจากฐานข้อมูล
         $products = Product::all();
 
+        // ส่งข้อมูลสินค้าไปยังหน้า Products/Index ผ่าน Inertia.js
         return inertia('Products/Index', [
             'products' => $products,
         ]);
@@ -25,6 +27,7 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
+        // ส่งข้อมูลสินค้าที่เลือกไปยังหน้า Products/Show ผ่าน Inertia.js
         return inertia('Products/Show', [
             'product' => $product,
         ]);
@@ -35,30 +38,26 @@ class ProductController extends Controller
      */
     public function create()
     {
+        // แสดงฟอร์มสำหรับการสร้างสินค้า
         return inertia('Products/Create');
     }
 
     /**
      * สร้างสินค้าใหม่
      */
-    public function store(Request $request)
+    public function store(ProductRequest $request)
     {
-        // ตรวจสอบข้อมูลที่ส่งมา
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'price' => 'required|numeric',
-            'stock' => 'required|integer',
-        ]);
+        try {
+            // ใช้ข้อมูลที่ได้รับจากฟอร์มที่ผ่านการตรวจสอบแล้ว
+            // เพื่อสร้างสินค้าใหม่ในฐานข้อมูล
+            Product::create($request->validated());
 
-        // สร้างสินค้าผ่านการส่งข้อมูล
-        Product::create([
-            'name' => $request->name,
-            'price' => $request->price,
-            'stock' => $request->stock,
-        ]);
-
-        // ส่งการตอบกลับหลังการสร้างสินค้าเป็น Inertia response และทำการ redirect ไปที่หน้าหลัก
-        return redirect()->route('products.index')->with('message', 'สร้างสินค้าสำเร็จ');
+            // ถ้าสร้างสินค้าสำเร็จ ให้รีไดเรกไปยังหน้ารายการสินค้าพร้อมแสดงข้อความ
+            return redirect()->route('products.index')->with('message', 'สร้างสินค้าสำเร็จ');
+        } catch (\Exception $e) {
+            // หากเกิดข้อผิดพลาด ให้แสดงข้อความข้อผิดพลาดและรีไดเรกกลับ
+            return redirect()->back()->with('error', 'เกิดข้อผิดพลาดในการสร้างสินค้า: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -66,6 +65,7 @@ class ProductController extends Controller
      */
     public function edit(Product $product)
     {
+        // ส่งข้อมูลสินค้าไปยังหน้า Products/Edit เพื่อให้สามารถแก้ไขได้
         return inertia('Products/Edit', [
             'product' => $product,
         ]);
@@ -74,24 +74,19 @@ class ProductController extends Controller
     /**
      * อัปเดตข้อมูลสินค้า
      */
-    public function update(Request $request, Product $product)
+    public function update(ProductRequest $request, Product $product)
     {
-        // ตรวจสอบข้อมูลที่ส่งมา
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'price' => 'required|numeric',
-            'stock' => 'required|integer',
-        ]);
+        try {
+            // ใช้ข้อมูลที่ได้รับจากฟอร์มที่ผ่านการตรวจสอบแล้ว
+            // เพื่ออัปเดตข้อมูลสินค้าในฐานข้อมูล
+            $product->update($request->validated());
 
-        // อัปเดตข้อมูลสินค้า
-        $product->update([
-            'name' => $request->name,
-            'price' => $request->price,
-            'stock' => $request->stock,
-        ]);
-
-        // ส่งการตอบกลับหลังการอัปเดตเป็น Inertia response และทำการ redirect ไปที่หน้าหลัก
-        return redirect()->route('products.index')->with('message', 'อัปเดตสินค้าสำเร็จ');
+            // ถ้าอัปเดตสินค้าสำเร็จ ให้รีไดเรกไปยังหน้ารายการสินค้าพร้อมแสดงข้อความ
+            return redirect()->route('products.index')->with('message', 'อัปเดตสินค้าสำเร็จ');
+        } catch (\Exception $e) {
+            // หากเกิดข้อผิดพลาด ให้แสดงข้อความข้อผิดพลาดและรีไดเรกกลับ
+            return redirect()->back()->with('error', 'เกิดข้อผิดพลาดในการอัปเดตสินค้า: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -99,10 +94,15 @@ class ProductController extends Controller
      */
     public function destroy(Product $product)
     {
-        // ลบสินค้าจากฐานข้อมูล
-        $product->delete();
+        try {
+            // ลบสินค้าจากฐานข้อมูล
+            $product->delete();
 
-        // ส่งการตอบกลับหลังการลบสินค้าเป็น Inertia response และทำการ redirect ไปที่หน้าหลัก
-        return redirect()->route('products.index')->with('message', 'ลบสินค้าสำเร็จ');
+            // ถ้าลบสินค้าสำเร็จ ให้รีไดเรกไปยังหน้ารายการสินค้าพร้อมแสดงข้อความ
+            return redirect()->route('products.index')->with('message', 'ลบสินค้าสำเร็จ');
+        } catch (\Exception $e) {
+            // หากเกิดข้อผิดพลาดในการลบ ให้รีไดเรกไปที่หน้ารายการสินค้าพร้อมแสดงข้อความข้อผิดพลาด
+            return redirect()->route('products.index')->with('error', 'เกิดข้อผิดพลาดในการลบสินค้า: ' . $e->getMessage());
+        }
     }
 }

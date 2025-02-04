@@ -2,13 +2,18 @@ import React, { useState, useEffect } from "react";
 import { Inertia } from '@inertiajs/inertia';
 
 const Edit = ({ product }) => {
+    // กำหนด state สำหรับเก็บข้อมูลสินค้าใหม่ที่จะแก้ไข
     const [newProduct, setNewProduct] = useState({
         name: product.name,
         price: product.price,
         stock: product.stock,
     });
+    // กำหนด state สำหรับสถานะการโหลด (กำลังอัปเดต)
+    const [isLoading, setIsLoading] = useState(false);
+    // กำหนด state สำหรับข้อความแสดงผล
+    const [message, setMessage] = useState("");
 
-    // Update the newProduct state if the product prop changes
+    // ใช้ useEffect เพื่ออัปเดตข้อมูลใหม่เมื่อ props ของ product เปลี่ยนแปลง
     useEffect(() => {
         setNewProduct({
             name: product.name,
@@ -17,65 +22,119 @@ const Edit = ({ product }) => {
         });
     }, [product]);
 
+    // ใช้ useEffect เพื่อลบข้อความหลังจาก 5 วินาที
+    useEffect(() => {
+        if (message) {
+            const timer = setTimeout(() => setMessage(""), 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [message]);
+
+    // ฟังก์ชันที่ใช้ในการจัดการการเปลี่ยนแปลงของ input fields
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setNewProduct(prevState => ({ ...prevState, [name]: value }));
+    };
+
+    // ฟังก์ชันที่ใช้ในการอัปเดตสินค้าหลังจากกรอกข้อมูล
     const handleUpdateProduct = () => {
-        if (!newProduct.name || !newProduct.price || !newProduct.stock) {
-            alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+        // ตรวจสอบว่าได้กรอกชื่อสินค้าหรือไม่
+        if (!newProduct.name.trim()) {
+            setMessage("Please enter product name");
+            return;
+        }
+        // ตรวจสอบราคาว่าเป็นตัวเลขและมากกว่าศูนย์หรือไม่
+        if (isNaN(newProduct.price) || newProduct.price <= 0) {
+            setMessage("Price must be a number greater than zero");
+            return;
+        }
+        // ตรวจสอบจำนวนสต็อกว่าเป็นตัวเลขและมากกว่าหรือเท่ากับศูนย์หรือไม่
+        if (isNaN(newProduct.stock) || newProduct.stock < 0) {
+            setMessage("Stock must be a number greater than or equal to zero");
             return;
         }
 
-        if (newProduct.price <= 0 || newProduct.stock < 0) {
-            alert("ราคาและจำนวนคงเหลือต้องเป็นค่าที่ถูกต้อง");
-            return;
-        }
+        // ตั้งสถานะการโหลดเป็น true ก่อนที่จะเริ่มการอัปเดต
+        setIsLoading(true);
+        setMessage("");
 
-        // ส่งข้อมูลไปที่ server
+        // ส่งคำขอ PUT ไปยัง API เพื่ออัปเดตข้อมูลสินค้า
         Inertia.put(`/products/${product.id}`, newProduct, {
             onSuccess: () => {
-                // รีเฟรชหน้าหลังจากอัปเดตสำเร็จ
-                Inertia.get("/products"); // กลับไปยังหน้า products
+                setMessage("Product updated successfully!");
+                setIsLoading(false);
+                Inertia.get("/products");
             },
+            onError: () => {
+                setMessage("Error occurred while updating product");
+                setIsLoading(false);
+            }
         });
     };
 
+    // ฟังก์ชันสำหรับยกเลิกการแก้ไขสินค้า
+    const handleCancel = () => {
+        if (isLoading) return;
+        setMessage("You have canceled the product update");
+        Inertia.get("/products");
+    };
+
     return (
-        <div className="container mx-auto px-6 py-12">
-            <h1 className="text-4xl font-semibold text-gray-900 text-center my-6">แก้ไขสินค้า</h1>
-            <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <div className="max-w-2xl mx-auto p-8 bg-white rounded-lg shadow-lg mt-10">
+            <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">Edit Product</h1>
+
+            {message && (
+                <div className={`text-center text-lg font-semibold mb-4 ${message.includes('successfully') ? 'text-green-600' : message.includes('canceled') ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {message}
+                </div>
+            )}
+
+            <div className="space-y-6">
                 <input
                     type="text"
+                    name="name"
                     value={newProduct.name}
-                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                    placeholder="ชื่อสินค้า"
-                    className="block w-full mt-2 p-2 border rounded"
+                    onChange={handleChange}
+                    placeholder="Product Name"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                     type="number"
+                    name="price"
                     value={newProduct.price}
-                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                    placeholder="ราคา"
-                    className="block w-full mt-2 p-2 border rounded"
+                    onChange={handleChange}
+                    placeholder="Price"
+                    min="0"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
                     type="number"
+                    name="stock"
                     value={newProduct.stock}
-                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                    placeholder="จำนวนคงเหลือ"
-                    className="block w-full mt-2 p-2 border rounded"
+                    onChange={handleChange}
+                    placeholder="Stock Available"
+                    min="0"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <div className="flex justify-between mt-4">
-                    <button
-                        onClick={handleUpdateProduct}
-                        className="px-6 py-2 bg-blue-500 text-white rounded"
-                    >
-                        อัปเดตสินค้า
-                    </button>
-                    <button
-                        onClick={() => Inertia.get("/products")} // กลับไปที่หน้า products
-                        className="px-6 py-2 bg-gray-500 text-white rounded"
-                    >
-                        ยกเลิก
-                    </button>
-                </div>
+            </div>
+
+            <div className="flex justify-between mt-8">
+                <button
+                    onClick={handleUpdateProduct}
+                    className={`w-full mr-2 py-3 text-lg font-semibold text-white rounded-md transition-all ${isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    disabled={isLoading}
+                >
+                    <span className={`${isLoading ? 'animate-spin' : ''}`}>
+                        {isLoading ? "Updating..." : "Update Product"}
+                    </span>
+                </button>
+                <button
+                    onClick={handleCancel}
+                    className={`w-full ml-2 py-3 text-lg font-semibold text-white rounded-md bg-gray-600 hover:bg-gray-700 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={isLoading}
+                >
+                    Cancel
+                </button>
             </div>
         </div>
     );
